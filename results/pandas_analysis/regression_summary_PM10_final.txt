@@ -4,7 +4,7 @@ Dep. Variable:      national_avg_PM10   R-squared:                       0.720
 Model:                            OLS   Adj. R-squared:                  0.705
 Method:                 Least Squares   F-statistic:                     48.68
 Date:                Fri, 05 Dec 2025   Prob (F-statistic):           2.01e-60
-Time:                        15:15:35   Log-Likelihood:                 79.507
+Time:                        23:50:05   Log-Likelihood:                 79.507
 No. Observations:                 260   AIC:                            -131.0
 Df Residuals:                     246   BIC:                            -81.16
 Df Model:                          13                                         
