@@ -179,10 +179,7 @@ def build_annual(aq_yearly: pd.DataFrame, pollutants: list[str], power_annual: p
 # =========================
 
 st.title("Power Generation vs Air Quality (2003–2024)")
-st.write(
-    "Spark로 집계한 대기질 Parquet 데이터와 연간 전력 통계(annual_power.csv)를 "
-    "연결한 시각화 대시보드입니다."
-)
+
 
 # 실제 데이터 로딩
 aq_yearly, pollutants = load_air_quality(PARQUET_BASE_DIR)
@@ -255,6 +252,7 @@ else:
 
     plt.tight_layout()
     st.pyplot(fig1)
+    st.write("This figure presents a set of regression scatter plots illustrating the relationship between annual power generation (MWh) and the z-score–standardized concentrations of five key air pollutants: SO₂, CO, O₃, NO₂, and PM10. Each subplot represents one pollutant, where individual data points correspond to yearly observations, and the blue regression line indicates the estimated linear trend. The shaded area around each line denotes the 95% confidence interval, showing the uncertainty of the fitted relationship.")
 
 
 # =========================
@@ -274,6 +272,7 @@ if len(corr_cols) >= 2:
     ax2.set_title("Correlation between Power and Air Quality Indicators")
     plt.tight_layout()
     st.pyplot(fig2)
+    st.write("This heatmap visualizes the pairwise Pearson correlation coefficients between annual power generation (Power_MWh) and several standardized air quality indicators (SO₂, CO, O₃, NO₂, PM10, PM2.5). Each cell displays a numeric correlation value ranging from –1 to 1, accompanied by a color scale where darker red indicates a stronger positive correlation and darker shades toward white indicate a stronger negative or weaker correlation.")
 else:
     st.info("상관관계를 계산할 수 있는 컬럼 수가 부족합니다.")
 
@@ -294,6 +293,7 @@ ax3.set_title("Trend of Air Pollutants over Time")
 ax3.legend()
 plt.tight_layout()
 st.pyplot(fig3)
+st.write("This line chart illustrates the year-to-year variation in several major air pollutants—SO₂, CO, O₃, NO₂, PM10, and PM2.5—using their average standardized (z-score) values over a multi-year period. Each colored line represents one pollutant, allowing direct comparison of their overall patterns and fluctuations across time.")
 
 
 # =========================
@@ -317,10 +317,12 @@ if aqi_cols:
         ax4.set_title("Power vs Overall Air Quality")
         plt.tight_layout()
         st.pyplot(fig4)
+        st.write("This scatter plot illustrates the aggregated relationship between annual power generation (MWh) and an overall air quality index, which is computed as the mean z-score of key pollutants (SO₂, NO₂, PM10). This combined index provides a simplified representation of general air pollution levels, allowing for a more holistic comparison with power production.")
 else:
     st.info("pm10_z, no2_z, so2_z 중 최소 하나 이상이 있어야 AirQualityIndex를 계산할 수 있습니다.")
 
 st.markdown("---")
+
 
 # =========================
 # 8. 계절성 분해 분석 섹션 (analyze_seasonal_decomposition.py 기반)
@@ -374,65 +376,85 @@ else:
     else:
         try:
             # 분석 대상 데이터 준비
-            df_analysis = decomposition_data[[TARGET_POLLUTANT, TARGET_POWER]].astype(float)
+            df_analysis_full = decomposition_data[[TARGET_POLLUTANT, TARGET_POWER]].astype(float)
             
-            # PM10 계절성 분해
-            st.subheader("PM10 Concentration Seasonal Decomposition")
-            result_pm10 = perform_seasonal_decomposition(df_analysis[TARGET_POLLUTANT], model='additive', period=12)
+            # 연도 추출 (인덱스에서 year 추출)
+            df_analysis_full['year'] = df_analysis_full.index.year
             
-            if result_pm10 is not None:
-                fig1, axes = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
-                
-                axes[0].plot(result_pm10.observed, label='Observed', color='blue')
-                axes[0].set_title('National Average PM10 Concentration Decomposition')
-                axes[0].legend()
-                axes[0].grid(True, alpha=0.3)
-                
-                axes[1].plot(result_pm10.trend, label='Trend', color='red')
-                axes[1].legend()
-                axes[1].grid(True, alpha=0.3)
-                
-                axes[2].plot(result_pm10.seasonal, label='Seasonal', color='green')
-                axes[2].legend()
-                axes[2].grid(True, alpha=0.3)
-                
-                axes[3].plot(result_pm10.resid, label='Residual', color='gray')
-                axes[3].legend()
-                axes[3].grid(True, alpha=0.3)
-                
-                plt.xlabel("Date")
-                plt.tight_layout()
-                st.pyplot(fig1)
+            # 연도 범위로 필터링 (기존 슬라이더 사용)
+            df_analysis = df_analysis_full[
+                (df_analysis_full['year'] >= y1) & (df_analysis_full['year'] <= y2)
+            ].copy()
             
-            st.markdown("---")
+            # year 컬럼 제거 (분석에 필요 없음)
+            df_analysis = df_analysis[[TARGET_POLLUTANT, TARGET_POWER]]
             
-            # Power 계절성 분해
-            st.subheader("Power Generation Seasonal Decomposition")
-            result_power = perform_seasonal_decomposition(df_analysis[TARGET_POWER], model='additive', period=12)
-            
-            if result_power is not None:
-                fig2, axes = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
+            if len(df_analysis) < 24:
+                st.warning(
+                    f"선택한 연도 범위({y1}-{y2})의 데이터가 부족합니다. "
+                    f"계절성 분해를 위해서는 최소 24개월 이상의 데이터가 필요합니다. "
+                    f"현재 선택된 범위: {len(df_analysis)}개월"
+                )
+            else:
+                # PM10 계절성 분해
+                st.subheader(f"PM10 Concentration Seasonal Decomposition ({y1}-{y2})")
+                result_pm10 = perform_seasonal_decomposition(df_analysis[TARGET_POLLUTANT], model='additive', period=12)
                 
-                axes[0].plot(result_power.observed, label='Observed', color='blue')
-                axes[0].set_title('National Thermal Power Generation Decomposition')
-                axes[0].legend()
-                axes[0].grid(True, alpha=0.3)
+                if result_pm10 is not None:
+                    fig1, axes = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
+                    
+                    axes[0].plot(result_pm10.observed, label='Observed', color='blue')
+                    axes[0].set_title(f'National Average PM10 Concentration Decomposition ({y1}-{y2})')
+                    axes[0].legend()
+                    axes[0].grid(True, alpha=0.3)
+                    
+                    axes[1].plot(result_pm10.trend, label='Trend', color='red')
+                    axes[1].legend()
+                    axes[1].grid(True, alpha=0.3)
+                    
+                    axes[2].plot(result_pm10.seasonal, label='Seasonal', color='green')
+                    axes[2].legend()
+                    axes[2].grid(True, alpha=0.3)
+                    
+                    axes[3].plot(result_pm10.resid, label='Residual', color='gray')
+                    axes[3].legend()
+                    axes[3].grid(True, alpha=0.3)
+                    
+                    plt.xlabel("Date")
+                    plt.tight_layout()
+                    st.pyplot(fig1)
+                    st.write("This scatter plot illustrates the aggregated relationship between annual power generation (MWh) and an overall air quality index, which is computed as the mean z-score of key pollutants (SO₂, NO₂, PM10). This combined index provides a simplified representation of general air pollution levels, allowing for a more holistic comparison with power production.")
                 
-                axes[1].plot(result_power.trend, label='Trend', color='red')
-                axes[1].legend()
-                axes[1].grid(True, alpha=0.3)
+                st.markdown("---")
                 
-                axes[2].plot(result_power.seasonal, label='Seasonal', color='green')
-                axes[2].legend()
-                axes[2].grid(True, alpha=0.3)
+                # Power 계절성 분해
+                st.subheader(f"Power Generation Seasonal Decomposition ({y1}-{y2})")
+                result_power = perform_seasonal_decomposition(df_analysis[TARGET_POWER], model='additive', period=12)
                 
-                axes[3].plot(result_power.resid, label='Residual', color='gray')
-                axes[3].legend()
-                axes[3].grid(True, alpha=0.3)
-                
-                plt.xlabel("Date")
-                plt.tight_layout()
-                st.pyplot(fig2)
+                if result_power is not None:
+                    fig2, axes = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
+                    
+                    axes[0].plot(result_power.observed, label='Observed', color='blue')
+                    axes[0].set_title(f'National Thermal Power Generation Decomposition ({y1}-{y2})')
+                    axes[0].legend()
+                    axes[0].grid(True, alpha=0.3)
+                    
+                    axes[1].plot(result_power.trend, label='Trend', color='red')
+                    axes[1].legend()
+                    axes[1].grid(True, alpha=0.3)
+                    
+                    axes[2].plot(result_power.seasonal, label='Seasonal', color='green')
+                    axes[2].legend()
+                    axes[2].grid(True, alpha=0.3)
+                    
+                    axes[3].plot(result_power.resid, label='Residual', color='gray')
+                    axes[3].legend()
+                    axes[3].grid(True, alpha=0.3)
+                    
+                    plt.xlabel("Date")
+                    plt.tight_layout()
+                    st.pyplot(fig2)
+                    st.write("This figure presents a classical time-series decomposition of national average PM10 concentrations into four components: Observed, Trend, Seasonal, and Residual. The decomposition helps reveal the underlying structure of the PM10 time series by separating long-term changes, repeating seasonal patterns, and irregular fluctuations.")
                 
         except Exception as e:
             st.error(f"계절성 분해 분석 중 오류 발생: {e}")
@@ -440,8 +462,5 @@ else:
             st.code(traceback.format_exc())
 
 st.markdown("---")
-st.caption(
-    "※ app.py를 Team project 폴더에 두고 실행하는 것을 기준으로 경로를 설정했습니다.\n"
-    "   경로가 다르다면 PARQUET_BASE_DIR, POWER_CSV_PATH만 수정하면 됩니다."
-)
+
 
