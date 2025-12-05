@@ -28,7 +28,7 @@ sns.set(style="whitegrid")
 
 BASE_DIR = Path(__file__).resolve().parent
 
-PARQUET_BASE_DIR = BASE_DIR / "preprocessed_data"
+PARQUET_BASE_DIR = BASE_DIR / "data/preprocessed_data"
 POWER_CSV_PATH = "annual_power.csv"   # 이미 이 폴더에 있음
 
 # parquet에 실제로 존재하는 오염물질 컬럼들 후보
